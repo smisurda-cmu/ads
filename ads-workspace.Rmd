@@ -1,0 +1,71 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+properties <- read.csv("properties_2016.csv")
+```
+
+```{r}
+# Create sets for each county
+county1 <- subset(properties, properties$regionidcounty == 1286)
+county2 <- subset(properties, properties$regionidcounty == 2061)
+county3 <- subset(properties, properties$regionidcounty == 3101)
+```
+## Data Summary
+
+##### County 1
+```{r}
+# Number of records 
+NROW(county1$taxvaluedollarcnt)
+
+# Descriptive statistics
+summary(county1$taxvaluedollarcnt)
+
+# Binned ranges 
+table(cut(county1$taxvaluedollarcnt, breaks=c(100000, 200000, 300000, 450000, 750000, 1000000, 5000000), labels=c("< 100000", "200,000", "300,000", "450,000", "750000", "> 1,000,000")))
+```
+##### County 2
+```{r}
+# Number of records 
+NROW(county2$taxvaluedollarcnt)
+
+# Descriptive statistics
+summary(county2$taxvaluedollarcnt)
+
+# Binned ranges 
+table(cut(county2$taxvaluedollarcnt, breaks=c(100000, 200000, 300000, 450000, 750000, 1000000, 5000000), labels=c("< 100000", "200,000", "300,000", "450,000", "750000", "> 1,000,000")))
+```
+
+##### County 3
+```{r}
+# Number of records 
+NROW(county3$taxvaluedollarcnt)
+
+# Descriptive statistics
+summary(county3$taxvaluedollarcnt)
+
+# Binned ranges 
+table(cut(county3$taxvaluedollarcnt, breaks=c(100000, 200000, 300000, 450000, 750000, 1000000, 5000000), labels=c("< 100000", "200,000", "300,000", "450,000", "750000", "> 1,000,000")))
+
+```
+
+## Simple Linear Model
+```{r}
+# County 1
+fit <- lm(county1$taxvaluedollarcnt ~ county1$bedroomcnt + county1$bathroomcnt, data = county1)
+summary(fit)
+
+# County 2
+fit <- lm(county2$taxvaluedollarcnt ~ county2$bedroomcnt + county2$bathroomcnt, data = county2)
+summary(fit)
+
+# County 3
+fit <- lm(county3$taxvaluedollarcnt ~ county3$bedroomcnt + county3$bathroomcnt, data = county3)
+summary(fit)
+
+```
+
+## Additional models

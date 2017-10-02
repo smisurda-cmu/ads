@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>Applied Data Science Final Project</title>
+
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+		<script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+		<script src="http://d3js.org/d3-geo.v1.min.js"></script>
+		<script src="http://d3js.org/topojson.v1.min.js"></script>
+		<script src="ca.js"></script>
+		<script src="house.no.na.small.js"></script>
+		<script src="test2.js"></script>
+
+  <style type="text/css">
+    #ca {
+      fill: #E5F5F9;
+      stroke: #2CA25F;
+      stroke-width: 0.5;
+    }
+    #axes {
+      stroke: #BDBDBD;
+      stroke-width: 0.5;
+    }
+    div.tooltip {	
+	    position: absolute;			
+	    text-align: left;		
+	    padding: 2px;				
+	    font: 12px sans-serif;		
+	    background: lightsteelblue;	
+	    border: 0px;		
+	    border-radius: 8px;			
+	    pointer-events: none;			
+	}
+	#dataset-value {
+		width: 100px;
+	    height: 45px;
+	    border: 1px solid #ccc;
+	    border-radius: 5px;
+	    background-color: green;
+	    color: white;
+	    font-family: sans-serif;
+	    padding: 5px;
+	}
+
+  </style>
+</head>
+<body>
+  <div id="vis"></div>
+  
+  <div id="dataset-value" >
+  	<input type="radio" name="predicted-actual" value="actual" checked> Actual<br>
+	<input type="radio" name="predicted-actual" value="predicted"> Predicted<br>
+  </div>
+
+
+  <script type="text/javascript">
+    var w = 960;
+    var h = 500;
+    var proj = d3.geo.albers();
+    var path = d3.geo.path().projection(proj);
+    var t = proj.translate([0,0]); // the projection's default translation
+    var s = proj.scale(1) // the projection's default scale
+
+    var threshold = d3.scale.linear()
+    .domain([1900, 2020])
+    .range(["white", "green"]);
+
+    var price = d3.scale.linear()
+    .domain([0, 50000000])
+    .range([2, 10]);
+
+    var error_ramp = d3.scale.linear()
+    .domain([-500000,50000])
+    .range(["blue","red"]);
+
+    var div = d3.select("body").append("div")	
+    .attr("class", "tooltip")				
+    .style("opacity", 0);
+
+
+    var map = d3.select("#vis").append("svg:svg")
+        .attr("width", w)
+        .attr("height", h)
+        .call(d3.behavior.zoom().on("zoom", redraw));
+
+    var moneyfmt = d3.format("$,f");
+
+    var counties = json.features.filter(function(d) { if(d.properties.name == "Ventura County, CA" ||
+	          			d.properties.name == "Orange County, CA" ||
+	          			d.properties.name == "Los Angeles County, CA"  ) {
+	          			return true;
+	          		}
+	          		else {
+	          			return false;
+	          		} });
+
+   
+    //Find the bounding box of the three counties by finding the leftmost, topmost, bottommost, and rightmost coordinates
+    var b = [[0,0],[-999,-999]];
+    for(var i=0;i<counties.length; i++) {
+    	var box = path.bounds(counties[i]);
+    	if(box[0][0] < b[0][0])
+    		b[0][0] = box[0][0];
+    	if(box[0][1] < b[0][1])
+    		b[0][1] = box[0][1];
+    	if(box[1][0] > b[1][0])
+    		b[1][0] = box[1][0];
+    	if(box[1][1] > b[1][1])
+    		b[1][1] = box[1][1];
+    }
+    
+    s = .95 / Math.max((b[1][0] - b[0][0]) / w, (b[1][1] - b[0][1]) / h);
+    t = [(w - s * (b[1][0] + b[0][0])) / 2, (h - s * (b[1][1] + b[0][1])) / 2];
+
+	// Update the projection to use computed scale & translate.
+	proj
+    .scale(s)
+    .translate(t);
+
+    var ca = map.append("svg:g").attr("id", "ca");
+
+    	
+      ca.selectAll("path")
+          .data(json.features)
+          .enter()
+          .append("svg:path")
+          // Pull out Los Angeles, Orange, and Ventura County
+	      .style("fill", function(d) {
+	          		if(d.properties.name == "Ventura County, CA" ||
+	          			d.properties.name == "Orange County, CA" ||
+	          			d.properties.name == "Los Angeles County, CA"  ) {
+	          			return "#cccccc";
+	          		}
+	          		else {
+	          			return "#fff";
+	          		}
+	        	})
+        
+          .attr("d", path);
+
+    // If dataset is changed
+    var dataset = actual;
+    $(document).ready(function() {
+    	drawData();
+	    $('input[name=predicted-actual]').change(function() {
+	        if($('input[name=predicted-actual]:checked').val() == "actual") {
+		   		console.log("Displaying actual results")
+		   		dataset = actual;
+		   		drawData();
+		    }
+		    else {
+		    	console.log("Displaying predictions")
+		    	dataset = predicted;
+		    	drawPredictions();
+		    }
+		    
+	    });
+
+	});
+
+function drawData(){
+	ca.selectAll("circle").remove();
+    var houses = d3.csv.parse(dataset);
+
+    console.log(s);
+    
+    ca.selectAll("circle")
+		.data(houses).enter()
+		.append("circle")
+		.attr("cx", function (d) { return proj([+d.longitude, +d.latitude])[0]; })
+		.attr("cy", function (d) { return proj([+d.longitude, +d.latitude])[1]; })
+		.attr("r", function(d) { return price(+d.taxvaluedollarcnt)+"px";})
+		.attr("fill", function (d) { return threshold(+d.yearbuilt); })
+		.attr("stroke", "none")
+		.on("mouseover", function(d) {		
+            div.transition()		
+                .duration(200)		
+                .style("opacity", .9);		
+            div	.html("<strong>Year Built:</strong> "  + d.yearbuilt + "<br/><strong>Assessed Price:</strong> " + moneyfmt(+d.taxvaluedollarcnt))
+                .style("left", (d3.event.pageX) + "px")		
+                .style("top", (d3.event.pageY - 28) + "px");	
+            })					
+        .on("mouseout", function(d) {		
+            div.transition()		
+                .duration(500)		
+                .style("opacity", 0);	
+        });
+}
+
+function drawPredictions(){
+	ca.selectAll("circle").remove();
+    var houses = d3.csv.parse(dataset);
+
+	ca.selectAll("circle")
+		.data(houses).enter()
+		.append("circle")
+		.attr("cx", function (d) { return proj([+d.longitude, +d.latitude])[0]; })
+		.attr("cy", function (d) { return proj([+d.longitude, +d.latitude])[1]; })
+		.attr("r", function(d) { return price(+d.actual)+"px";})
+		.attr("fill", function (d) { return error_ramp((+d.actual) - (+d.prediction)); })
+		.attr("stroke", "none")
+		.on("mouseover", function(d) {		
+            div.transition()		
+                .duration(200)		
+                .style("opacity", .9);		
+            div	.html("<strong>Predicted Value:</strong> "  + moneyfmt(+d.prediction) + "<br/><strong>Actual Value:</strong> " + moneyfmt(+d.actual))
+                .style("left", (d3.event.pageX) + "px")		
+                .style("top", (d3.event.pageY - 28) + "px");	
+            })					
+        .on("mouseout", function(d) {		
+            div.transition()		
+                .duration(500)		
+                .style("opacity", 0);	
+        });
+}
+
+
+    function redraw() {
+      // d3.event.translate (an array) stores the current translation from the parent SVG element
+      // t (an array) stores the projection's default translation
+      // we add the x and y vales in each array to determine the projection's new translation
+      var tx = t[0] * d3.event.scale + d3.event.translate[0];
+      var ty = t[1] * d3.event.scale + d3.event.translate[1];
+      proj.translate([tx, ty]);
+
+      // now we determine the projection's new scale, but there's a problem:
+      // the map doesn't 'zoom onto the mouse point'
+      proj.scale(s * d3.event.scale);
+
+      // redraw the map
+      ca.selectAll("path").attr("d", path);
+
+      ca.selectAll("circle")
+      .attr("cx", function (d) { return proj([+d.longitude, +d.latitude])[0]; })
+      .attr("cy", function (d) { return proj([+d.longitude, +d.latitude])[1]; })
+      //.attr("r", function(d) { return price(+d.actual)+"px";});
+    }
+
+  </script>
+</body>
+</html>
+
